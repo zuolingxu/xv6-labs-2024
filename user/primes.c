@@ -2,7 +2,7 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
-#define MAX_PRIME 280
+const int MAX_PRIME = 280;
 void primes(int, int, int, int) __attribute__((noreturn));
 
 void primes(int prime, int pipe_read, int pipe_p_read, int pipe_p_write){
