@@ -148,7 +148,7 @@ main(void)
   static char buf[100];
   int fd;
 
-  // Ensure that three file descriptors are open.
+  // Ensure that three file descriptors (standard input, output and error) are open and are defaulted to the console.
   while((fd = open("console", O_RDWR)) >= 0){
     if(fd >= 3){
       close(fd);
@@ -259,12 +259,13 @@ backcmd(struct cmd *subcmd)
 }
 //PAGEBREAK!
 // Parsing
-
+// parsecmd parses the input string into a tree of cmd structures.
 char whitespace[] = " \t\r\n\v";
 char symbols[] = "<|>&;()";
 
 int
 gettoken(char **ps, char *es, char **q, char **eq)
+// Read a token (operator or arg) from *ps to *eq, and return it.
 {
   char *s;
   int ret;
@@ -310,6 +311,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
 
 int
 peek(char **ps, char *es, char *toks)
+// Check if the next char is in toks
 {
   char *s;
 
@@ -344,6 +346,7 @@ parsecmd(char *s)
 
 struct cmd*
 parseline(char **ps, char *es)
+// ps points to the start of unparsed string, es is the end of the string
 {
   struct cmd *cmd;
 
@@ -384,10 +387,10 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
       panic("missing file for redirection");
     switch(tok){
     case '<':
-      cmd = redircmd(cmd, q, eq, O_RDONLY, 0);
+      cmd = redircmd(cmd, q, eq, O_RDONLY, 0); // 0 represents standard input
       break;
     case '>':
-      cmd = redircmd(cmd, q, eq, O_WRONLY|O_CREATE|O_TRUNC, 1);
+      cmd = redircmd(cmd, q, eq, O_WRONLY|O_CREATE|O_TRUNC, 1); // 1 represents standard output
       break;
     case '+':  // >>
       cmd = redircmd(cmd, q, eq, O_WRONLY|O_CREATE, 1);
@@ -446,7 +449,7 @@ parseexec(char **ps, char *es)
   return ret;
 }
 
-// NUL-terminate all the counted strings.
+// NUL-terminate all the counted strings. add '\0' to the end of each string in the command tree.
 struct cmd*
 nulterminate(struct cmd *cmd)
 {
