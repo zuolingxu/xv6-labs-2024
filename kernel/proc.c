@@ -146,6 +146,11 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->alarm_handler = 0;
+  p->alarm_ticks = 0;
+  p->alarm_interval = 0;
+  p->tf_backup = 0;
+
   return p;
 }
 
@@ -691,5 +696,62 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+
+void
+backtrace()
+{
+  uint64 *bp = (uint64 *)r_fp();
+  uint64 end = PGROUNDUP((uint64)bp);
+  while (bp && (uint64)bp < end && (uint64)bp > (end - PGSIZE)) {
+    uint64 ra = bp[-1];
+    printf("%p\n", (void *)ra);
+    bp = (uint64 *)bp[-2];
+  }
+}
+
+void
+sigalarm(int interval, uint64 handler)
+{
+  struct proc *p = myproc();
+  p->alarm_interval = interval;
+  p->alarm_handler = handler;
+  p->alarm_ticks = 0;
+}
+
+uint64 
+sigreturn(void)
+{
+  struct proc *p = myproc();
+  p->alarm_ticks = 0;
+  *p->trapframe = *p->tf_backup;
+  kfree(p->tf_backup);
+  p->tf_backup = 0;
+  return p->trapframe->a0;
+}
+
+void 
+callalarm(void)
+{
+  struct proc *p = myproc();
+  if (p->alarm_interval == 0 || p->tf_backup != 0) {
+    return;
+  } 
+  
+  if (p->alarm_ticks < p->alarm_interval) {
+    p->alarm_ticks++;
+  } else if (p->alarm_ticks == p->alarm_interval) {
+    // Call alarm handler
+    p->tf_backup = kalloc();
+    if (!p->tf_backup) {
+      printf("callalarm: out of memory, unable to call alarm handler\n");
+      kill(p->pid);
+      return;
+    }
+    *p->tf_backup = *p->trapframe;
+    p->trapframe->epc = p->alarm_handler;
+  } else {
+    panic("callalarm: inconsistent state");
   }
 }
