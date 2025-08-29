@@ -1,0 +1,56 @@
+1. For every page table entry in the print_pgtbl output, explain what it logically contains and what its permission bits are. Figure 3.4 in the xv6 book might be helpful, although note that the figure might have a slightly different set of pages than process that's being inspected here. Note that xv6 doesn't place the virtual pages consecutively in physical memory.    
+
+va 0x0 pte 0x21FC885B pa 0x87F22000 perm 0x5B
+PTE_V: 1, PTE_R: 1, PTE_W: 0, PTE_X: 1, PTE_U: 1, PTE_A: 1
+代表该页表项有效（PTE_V），可读（PTE_R），可写（PTE_W），不可执行（PTE_X），用户可访问（PTE_U），已访问（PTE_A）。
+此页中的内容是用户程序代码或只读数据。
+
+va 0x1000 pte 0x21FC7C1B pa 0x87F1F000 perm 0x1B
+PTE_V: 1, PTE_R: 1, PTE_W: 0, PTE_X: 1, PTE_U: 1, PTE_A: 0
+代表该页表项有效（PTE_V），可读（PTE_R），不可写（PTE_W），可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A）。
+同上
+
+va 0x2000 pte 0x21FC7817 pa 0x87F1E000 perm 0x17
+PTE_V: 1, PTE_R: 1, PTE_W: 1, PTE_X: 0, PTE_U: 1, PTE_A: 0
+代表该页表项有效（PTE_V），可读（PTE_R），可写（PTE_W），不可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A）。
+此页中的内容是用户全局数据。
+
+va 0x3000 pte 0x21FC7407 pa 0x87F1D000 perm 0x7
+PTE_V: 1, PTE_R: 1, PTE_W: 1, PTE_X: 0, PTE_U: 0, PTE_A: 0
+代表该页表项有效（PTE_V），可读（PTE_R），可写（PTE_W），不可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A）。
+此页的内容是栈的守护页。
+
+va 0x4000 pte 0x21FC70D7 pa 0x87F1C000 perm 0xD7
+PTE_V: 1, PTE_R: 1, PTE_W: 1, PTE_X: 0, PTE_U: 1, PTE_A: 1, PTE_D: 1
+代表该页表项有效（PTE_V），可读（PTE_R），可写（PTE_W），不可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A），已写入（PTE_D）。
+此页的内容是用户栈。
+
+va 0x5000 pte 0x0 pa 0x0 perm 0x0
+va 0x6000 pte 0x0 pa 0x0 perm 0x0
+va 0x7000 pte 0x0 pa 0x0 perm 0x0
+va 0x8000 pte 0x0 pa 0x0 perm 0x0
+va 0x9000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF6000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF7000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF8000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFF9000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFA000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFB000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFC000 pte 0x0 pa 0x0 perm 0x0
+va 0xFFFFD000 pte 0x0 pa 0x0 perm 0x0
+pte无效，表示该虚拟地址未映射。
+
+va 0xFFFFE000 pte 0x21FD54C7 pa 0x87F55000 perm 0xC7
+PTE_V: 1, PTE_R: 1, PTE_W: 1, PTE_X: 0, PTE_U: 0, PTE_A: 1, PTE_D: 1
+代表该页表项有效（PTE_V），可读（PTE_R），不可写（PTE_W），可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A），已写入（PTE_D）。
+此页的内容是用户进程的trapframe用于储存上下文信息。
+
+va 0xFFFFF000 pte 0x2000184B pa 0x80006000 perm 0x4B
+PTE_V: 1, PTE_R: 1, PTE_W: 0, PTE_X: 1, PTE_U: 0, PTE_A: 1, PTE_D: 0
+代表该页表项有效（PTE_V），可读（PTE_R），不可写（PTE_W），可执行（PTE_X），用户可访问（PTE_U），未访问（PTE_A），未写入（PTE_D）。
+此页的内容是trampoline代码，用于在用户态和内核态之间切换。
+
+
+2. Which other xv6 system call(s) could be made faster using this shared page? Explain how.
+
+除了getpid以外，sys_sysinfo和sys_pgpte都可以利用共享页加速，因为这两个调用都只涉及页表项的读取。
