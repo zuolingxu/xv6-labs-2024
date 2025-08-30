@@ -315,7 +315,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -324,11 +323,15 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+
+    if(flags & PTE_W){
+      flags = (flags & ~PTE_W) | PTE_COW;
+      *pte = PA2PTE(pa) | flags;
+    }
+    krefinc(pa);
+
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      kfree((void *)pa);
       goto err;
     }
   }
@@ -352,6 +355,56 @@ uvmclear(pagetable_t pagetable, uint64 va)
   *pte &= ~PTE_U;
 }
 
+int
+uvmhandlepagefault(pagetable_t pagetable, uint64 va)
+{
+  pte_t *pte;
+  uint flags;
+
+  if(va >= MAXVA || va < 0)
+    return 0;
+  pte = walk(pagetable, va, 0);
+  if(pte == 0)
+    return 0;
+  flags = PTE_FLAGS(*pte);
+  if(pte == 0 || (flags & PTE_COW) == 0)
+    return 0;
+  return uvmCOW(pte);
+}
+
+uint64
+uvmCOW(pte_t *pte)
+{
+  uint64 pa;
+  char *mem;
+  uint flags;
+
+  if(pte == 0)
+    panic("uvmCOW: pte is null");
+  flags = PTE_FLAGS(*pte);
+  if((flags & PTE_COW) == 0)
+    panic("uvmCOW: not COW page");
+  pa = PTE2PA(*pte);
+
+  int ref = krefnum(pa);
+  flags = (flags & ~PTE_COW) | PTE_W | PTE_V;
+  pa = PTE2PA(*pte);
+
+  if(ref < 1)
+    panic("uvmCOW: krefnum < 1");
+  if(ref == 1){
+    *pte = PA2PTE(pa) | flags;
+  } else {
+    mem = kalloc();
+    if(mem == 0)
+      return 0;
+    memmove(mem, (char*)pa, PGSIZE);
+    *pte = PA2PTE((uint64)mem) | flags;
+    kfree((void*)pa);
+  }
+  return *pte;
+}
+
 // Copy from kernel to user.
 // Copy len bytes from src to virtual address dstva in a given page table.
 // Return 0 on success, -1 on error.
@@ -366,6 +419,12 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(va0 >= MAXVA)
       return -1;
     pte = walk(pagetable, va0, 0);
+
+    if(pte != 0 && (*pte & PTE_COW) != 0){
+      if((*pte = uvmCOW(pte)) == 0)
+        return -1;
+    }
+
     if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
        (*pte & PTE_W) == 0)
       return -1;

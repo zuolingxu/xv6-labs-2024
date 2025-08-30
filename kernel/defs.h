@@ -1,3 +1,4 @@
+#include <stdint.h>
 struct buf;
 struct context;
 struct file;
@@ -63,6 +64,8 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+int             krefinc(uint64 pa);
+int             krefnum(uint64 pa);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -106,6 +109,8 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+int             uvmhandlepagefault(pagetable_t, uint64);
+uint64          uvmCOW(pte_t*);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
